@@ -22,7 +22,7 @@
                 <i class="fa-solid fa-truck-pickup"></i>
                 <div class="logo-text">
                     <h1>Turan Oto Kurtarma</h1>
-                    <span>Mahmut Enes Turan</span>
+                    <span class="admin-trigger">Mahmut Enes Turan</span>
                 </div>
             </a>
             <div class="nav-links">
@@ -128,7 +128,7 @@
             <div class="footer-brand">
                 <h2>Turan Oto Kurtarma</h2>
                 <p>Adıyaman'ın Güvenilir Çekicisi</p>
-                <p>Kurucu: <strong>Mahmut Enes Turan</strong></p>
+                <p>Kurucu: <strong class="admin-trigger">Mahmut Enes Turan</strong></p>
             </div>
             <div class="footer-contact">
                 <h3>Bize Ulaşın</h3>
@@ -142,5 +142,130 @@
         </div>
     </footer>
 
+    <!-- Admin Modal -->
+    <div class="admin-modal" id="adminModal">
+        <div class="admin-content">
+            <i class="fa-solid fa-xmark admin-close" onclick="closeAdmin()"></i>
+            <div class="admin-header">
+                <h2>Admin Paneli</h2>
+                <p>Canlı Site Trafik İstatistikleri (Gerçek Veri)</p>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <i class="fa-solid fa-users"></i>
+                    <h3 id="totalVisits">...</h3>
+                    <p>Toplam Görüntüleme</p>
+                </div>
+                <div class="stat-card">
+                    <i class="fa-solid fa-eye"></i>
+                    <h3 id="dailyVisits">...</h3>
+                    <p>Bugünkü Tekil Ziyaretçi</p>
+                </div>
+            </div>
+            <div class="chart-container">
+                <canvas id="trafficChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // API Base for tracking real statistics
+        const API_BASE = "https://countapi.mileshilliard.com/api/v1/";
+        const NAMESPACE = "turanoto-adymn-4422"; // Custom unique namespace
+        
+        const todayStr = new Date().toISOString().split('T')[0];
+        
+        async function trackVisit() {
+            // Increment total views on every setup load
+            fetch(API_BASE + `hit/${NAMESPACE}-total`).catch(e=>console.log(e));
+            
+            // Increment daily visits uniquely per session
+            if(!sessionStorage.getItem('visited_today')) {
+                fetch(API_BASE + `hit/${NAMESPACE}-daily-${todayStr}`).catch(e=>console.log(e));
+                sessionStorage.setItem('visited_today', 'true');
+            }
+        }
+        
+        window.addEventListener('load', trackVisit);
+        
+        let clickCount = 0;
+        let clickTimer;
+        
+        document.querySelectorAll('.admin-trigger').forEach(el => {
+            el.addEventListener('click', () => {
+                clickCount++;
+                if(clickCount === 3) {
+                    openAdmin();
+                    clickCount = 0;
+                }
+                clearTimeout(clickTimer);
+                clickTimer = setTimeout(() => { clickCount = 0; }, 1000); // Reset clicks after 1s
+            });
+        });
+        
+        function closeAdmin() {
+            document.getElementById('adminModal').classList.remove('active');
+        }
+        
+        async function getCount(key) {
+            try {
+                let res = await fetch(API_BASE + `value/${key}`);
+                let data = await res.json();
+                return data.value || 0;
+            } catch(e) {
+                return 0;
+            }
+        }
+        
+        async function openAdmin() {
+            document.getElementById('adminModal').classList.add('active');
+            document.getElementById('totalVisits').innerText = '...';
+            document.getElementById('dailyVisits').innerText = '...';
+            
+            let total = await getCount(`${NAMESPACE}-total`);
+            document.getElementById('totalVisits').innerText = total;
+            
+            let daily = await getCount(`${NAMESPACE}-daily-${todayStr}`);
+            document.getElementById('dailyVisits').innerText = daily;
+            
+            // Get past 7 days for the chart
+            let dates = [];
+            let datasets = [];
+            for(let i=6; i>=0; i--) {
+                let d = new Date();
+                d.setDate(d.getDate() - i);
+                let dStr = d.toISOString().split('T')[0];
+                dates.push(d.toLocaleDateString('tr-TR', {day: 'numeric', month: 'short'}));
+                let count = await getCount(`${NAMESPACE}-daily-${dStr}`);
+                datasets.push(count);
+            }
+            
+            const ctx = document.getElementById('trafficChart');
+            if(window.trafficChartInstance) {
+                window.trafficChartInstance.destroy();
+            }
+            
+            window.trafficChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: dates,
+                    datasets: [{
+                        label: 'Son 7 Gün Tekil Ziyaretçi',
+                        data: datasets,
+                        backgroundColor: '#ffb703',
+                        borderRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, ticks: { precision: 0 } }
+                    }
+                }
+            });
+        }
+    </script>
 </body>
 </html>
