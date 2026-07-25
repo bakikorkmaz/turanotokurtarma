@@ -196,7 +196,12 @@
             el.addEventListener('click', () => {
                 clickCount++;
                 if(clickCount === 3) {
-                    openAdmin();
+                    let pw = prompt("Lütfen admin şifresini giriniz:");
+                    if(pw === "enesT.") {
+                        openAdmin();
+                    } else if(pw) {
+                        alert("Hatalı şifre!");
+                    }
                     clickCount = 0;
                 }
                 clearTimeout(clickTimer);
